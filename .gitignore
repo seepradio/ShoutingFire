@@ -1,0 +1,13 @@
+.gradle/
+.idea/
+app/.DS_Store
+app/app.iml
+app/build/
+app/out.txt
+app/release/
+app/src/main/res/.DS_Store
+bmir.iml
+gradle/wrapper/gradle-wrapper.jar
+gradlew
+gradlew.bat
+import-summary.txt
