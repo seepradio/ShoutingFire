@@ -2,7 +2,19 @@
  * Transient foreground class which fetches and displays
  * the name of the presently-playing song.
  *
- * Copyright (c) 2012, 2018 bmir.org and shoutingfire.com
+ * Copyright shoutingfire.com 2018,2019
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.shoutingfire.mobile.android.player;
 
@@ -15,8 +27,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.widget.Toast;
 
-import com.shoutingfire.mobile.android.player.Constants;
-
 /**
  * Issues a web request to the server to determine the current song.
  * Returns the current song to the specified listener.
@@ -27,12 +37,6 @@ public class NowPlayingThread implements Runnable {
 	 * Ensures only one of these threads is running at any one time.
 	 */
 	private static Object _mutex = new Object();
-
-	/**
-	 * URL for the server status page.
-	 */
-	////  ivate final static String STATUS_URL_STRING = "http://bmir-ice.streamguys.com/";
-	////private final static String STATUS_URL_STRING = "http://shoutingfire-ice.streamguys1.com/";
 
 	/**
 	 * Private error message return code.
@@ -82,7 +86,7 @@ public class NowPlayingThread implements Runnable {
 	public NowPlayingThread(Context context, Activity activity) {
 		_context = context;
 		_activity = activity;
-		_msgCurrentSong = context.getResources().getString(R.string.app_name) + ": ";
+		_msgCurrentSong = Constants.APP_NAME_MIXED + ": ";
 	}
 
 	/**
@@ -214,7 +218,7 @@ public class NowPlayingThread implements Runnable {
             br = new BufferedReader(new InputStreamReader(uc.getInputStream()));
 
             // Safety valve to constrain the following while loop.
-            // The bmir-ice page was originally 81 lines long, so 810 should be plenty.
+            // The page was originally 81 lines long, so 810 should be plenty.
             int numLines = 0;
 
             rc = "";
