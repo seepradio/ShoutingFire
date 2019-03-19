@@ -1,29 +1,43 @@
 /**
  * Transient foreground class which starts/stops/queries the player.
  *
- * Copyright (c) 2011, 2018 bmir.org and shoutingfire.com
+ * Copyright shoutingfire.com 2018,2019
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.shoutingfire.mobile.android.player;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
-import android.support.v4.content.ContextCompat;
+import android.security.NetworkSecurityPolicy;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
-import android.widget.Toast;
 
-import com.shoutingfire.mobile.android.player.Constants;
-
-public class MainActivity extends Activity {
+public class MainActivity extends Activity
+implements MediaPlayer.OnPreparedListener,
+		MediaPlayer.OnBufferingUpdateListener,
+		MediaPlayer.OnInfoListener,
+		MediaPlayer.OnErrorListener,
+		MediaPlayer.OnCompletionListener
+{
 
 	/**
 	 * Commands to this service.
@@ -37,7 +51,7 @@ public class MainActivity extends Activity {
 	 */
 	private static final String _logTag = MainActivity.class.getName().toString();
 	private static void sop(String method, String message) {
-		Log.d(_logTag, method + ": " + message);
+		//Log.d(_logTag, method + ": " + message);
 	}
 
 	/**
@@ -58,7 +72,12 @@ public class MainActivity extends Activity {
 	    setContentView(R.layout.main);
 
 	    // Create a thread object to query the current song.
-	    _nowPlayingThread = new NowPlayingThread(this, this);
+	    // AD 2018-0915 Suppress this since stream is not sending the info.
+	    // _nowPlayingThread = new NowPlayingThread(this, this);
+
+	    //sop(m,"checking isCleartextTrafficPermitted() for " + Constants.MEDIA_HOSTNAME);
+	    //boolean permitted = NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted(Constants.MEDIA_HOSTNAME);
+	    //sop(m,"permitted=" + permitted);
 
 	 	sop(m,"Exit.");
 	}
@@ -75,9 +94,8 @@ public class MainActivity extends Activity {
 	 	if (productionMode) {
 	 	 	// Inform the player service that the user clicked the button.
 	 	 	// Note: If the service has already been started, the running service receives this intent.
-	 	 	//startService(new Intent(PlayerService.ACTION_BUTTON));
+	 	 	// AD 2018-0914 Updated for Android API 28.
 			Intent intent = new Intent(PlayerService.ACTION_BUTTON);
-			sop(m,"===> ANDY MA 77 <===");
 			intent.setPackage(this.getPackageName());
 			startService(intent);
 
@@ -165,8 +183,8 @@ public class MainActivity extends Activity {
 
         sop(m,"Requesting status from the service in order to update the MainActivity button image.");
  	 	// Note: If the service has already been started, the running service receives this intent.
+		// AD 2018-0914 Updated for Android API 28.
 		Intent intent = new Intent(PlayerService.ACTION_STATUS);
-		sop(m,"===> ANDY MA 160 <===");
 		intent.setPackage(this.getPackageName());
  	 	startService(intent);
 
@@ -184,27 +202,36 @@ public class MainActivity extends Activity {
         unregisterReceiver(_mainActivityBroadcastReceiver);
     }
 
-	/**
-	 * Generates a toast message to the user.
-	 */
-	private void postToast(String message) {
-		String m = "postToast";
-		sop(m,"Entry. message=" + message);
-		String app_name = Constants.APP_NAME_MIXED;
-		Toast.makeText(this, app_name + ": " + message, Toast.LENGTH_LONG).show();
+	// For debug only
+	public void onPrepared(MediaPlayer mp) {
+		String m = "onPrepared";
+		sop(m,"Prepared!!");
 	}
 
-	/**
-	 * Checks whether this app has its required Android Permissions.
-	 */
-	private boolean hasPermissions() {
-		String m = "hasPermissions";
-		Context context = this;
-		//boolean rc = context.checkPermission("b", Process.myPid(), Process.myUid());
-		if (PackageManager.PERMISSION_GRANTED == ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_CHECKIN_PROPERTIES)) {
-			sop(m,"Has checkin permission");
+	// For debug only
+	public void onBufferingUpdate(MediaPlayer mp, int percent) {
+		String m = "onBufferingUpdate";
+		sop(m,"percent=" + percent);
 		}
-		return true;
+
+	// For debug only
+	public boolean onInfo(MediaPlayer mp, int what, int extra) {
+		String m = "onInfo";
+		sop(m,"what=" + what + " extra=" + extra);
+		return false;
+	}
+
+	// For debug only
+	public boolean onError(MediaPlayer mp, int what, int extra) {
+		String m = "onError";
+		sop(m,"what=" + what + " extra=" + extra);
+		return false;
+	}
+
+	// For debug only
+	public void onCompletion(MediaPlayer mp) {
+		String m = "onCompletion";
+		sop(m,"Completed!!");
 	}
 
 	/**
@@ -217,20 +244,48 @@ public class MainActivity extends Activity {
     	sop(m,"Entry.");
 
 		String url = PlayerService.getMediaURLString();
+
+		sop(m,"checking isCleartextTrafficPermitted() for " + Constants.MEDIA_HOSTNAME);
+		boolean permitted = NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted(Constants.MEDIA_HOSTNAME);
+		sop(m,"permitted=" + permitted);
+
 		MediaPlayer mediaPlayer = new MediaPlayer();
-		mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+		// For Android API 26 (Android 8 Oreo) and newer, specify AudioAttributes.
+		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+			sop(m,"Setting audio attributes for Android API 26 and later.");
+			// Alternative: Review AudioAttributesCompat.Builder() in uamp.MusicSerice.kt
+			AudioAttributes.Builder builder = new AudioAttributes.Builder();
+			builder.setUsage(AudioAttributes.USAGE_MEDIA);
+			builder.setContentType(AudioAttributes.CONTENT_TYPE_MUSIC);
+			AudioAttributes attributes = builder.build();
+			mediaPlayer.setAudioAttributes(attributes);
+			sop(m,"Set audio attributes.");
+		}
+		else {
+			sop(m,"Setting audio stream type for older Android APIs before 26.");
+			mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+			sop(m,"Set audio stream type.");
+		}
 		try {
-			sop(m,"Setting data source.");
+			sop(m,"Setting listeners for debug.");
+			mediaPlayer.setOnPreparedListener(this);
+			mediaPlayer.setOnBufferingUpdateListener(this);
+			mediaPlayer.setOnInfoListener(this);
+			mediaPlayer.setOnErrorListener(this);
+			mediaPlayer.setOnCompletionListener(this);
+
+			sop(m,"Setting data source: " + url);
 			mediaPlayer.setDataSource(url);
-			sop(m,"Calling prepare.");
+			sop(m,"Calling prepare().");
 			mediaPlayer.prepare();
+			sop(m,"Called prepare().");
 		}
 		catch(Exception e) {
 			sop(m,"ERROR: Caught expection e=" + e.getMessage());
 		}
-		sop(m,"Calling start.");
-        mediaPlayer.start();
+		sop(m,"Calling start().");
+        	mediaPlayer.start();
 
-        sop(m,"Exit.");
+		sop(m,"Exit. Called start().");
     }
 }
