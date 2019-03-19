@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (c) 2011, 2018 bmir.org and shoutingfire.com -->
-<!-- Note: The package name must match the package name in all java files. -->
+<!-- Copyright shoutingfire.com 2018,2019 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="com.shoutingfire.mobile.android.player">
-      <!-- android:versionCode="303"
-      android:versionName="3.0.3" -->   <!-- 2018-0908 Switched stream URL to year-round shoutingfire.com -->
-      
+      package="com.shoutingfire.mobile.android.player"
+      android:versionCode="101"
+      android:versionName="1.0.1">
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     
     <application android:icon="@drawable/icon" 
                  android:label="@string/app_name">
-                 
         <service android:name=".PlayerService"
                  android:enabled="true" >
             <intent-filter>
