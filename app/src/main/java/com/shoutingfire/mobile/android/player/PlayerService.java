@@ -1,26 +1,39 @@
 /**
  * Long-running Android background service plays the music.
  *
- * Copyright (c) 2011, 2018 bmir.org and shoutingfire.com
+ * Copyright shoutingfire.com 2018,2019
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.shoutingfire.mobile.android.player;
 
 import java.io.IOException;
-
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 import android.widget.Toast;
-
-import com.shoutingfire.mobile.android.player.Constants;
 
 public class PlayerService extends Service implements
 MediaPlayer.OnPreparedListener,
@@ -33,12 +46,6 @@ AudioManager.OnAudioFocusChangeListener {
 	 * For logging
 	 */
 	private static final String appname = Constants.APP_NAME_MIXED;
-
-	/**
-	 * Specify the music stream.
-	 */
-	////private static final String _mediaHostname = Constants.MEDIA_HOSTNAME;
-	////private static final String _mediaURLString = Constants.MEDIA_URL_STRING; ////"http://" + _mediaHostname + ":80/live";
 
 	/**
 	 * Reference to the Android media player.
@@ -95,7 +102,9 @@ AudioManager.OnAudioFocusChangeListener {
 	 */
 	private NotificationManager _notificationManager = null;
 	private Notification _notification = null;
-	private static final int NOTIFICATION_ID = 947392519;
+	private NotificationCompat.Builder _notificationBuilder = null;
+	private static final int NOTIFICATION_ID = Constants.NOTIFICATION_ID;
+	private static final String NOTIFICATION_CHANNEL_ID = Constants.NOTIFICATION_CHANNEL_ID;
 
 	/**
 	 * Count of play/stop button clicks while the player is starting.
@@ -115,7 +124,7 @@ AudioManager.OnAudioFocusChangeListener {
 	 */
 	private static final String _logTag = PlayerService.class.getName().toString();
 	private static void sop(String method, String message) {
-		Log.d(_logTag, method + ": " + message);
+		//Log.d(_logTag, method + ": " + message);
 	}
 
     /**
@@ -228,7 +237,23 @@ AudioManager.OnAudioFocusChangeListener {
 
             // Set up the Android Media Player.
 			_mediaPlayer = new MediaPlayer();
+			// For Android API 26 (Android 8 Oreo) and newer, specify AudioAttributes.
+			if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+				sop(m,"Setting audio attributes for Android API 26 and later.");
+				AudioAttributes.Builder builder = new AudioAttributes.Builder();
+				//builder.setLegacyStreamType(AudioManager.STREAM_MUSIC);
+				builder.setUsage(AudioAttributes.USAGE_MEDIA);
+				builder.setContentType(AudioAttributes.CONTENT_TYPE_MUSIC);
+				AudioAttributes attributes = builder.build();
+				_mediaPlayer.setAudioAttributes(attributes);
+				sop(m,"Set audio attributes.");
+			}
+			else {
+				sop(m,"Setting audio stream type for older Android APIs before 26.");
 			_mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+				sop(m,"Set audio stream type.");
+			}
+
 			_mediaPlayer.setDataSource(Constants.MEDIA_URL_STRING);
             _mediaPlayer.setOnPreparedListener(this);
             _mediaPlayer.setOnErrorListener(this);
@@ -354,7 +379,7 @@ AudioManager.OnAudioFocusChangeListener {
 
 		// Clean up.
   		stopMusic(false);
-        String message = getResources().getString(R.string.STR_CONNECT_ERROR);
+        String message = getResources().getString(R.string.STR_CONNECT_ERROR) + " " + Constants.MEDIA_URL_STRING;
         notifyUser(Title.Error, message);
         postToast(message);
 
@@ -448,12 +473,15 @@ AudioManager.OnAudioFocusChangeListener {
 	 */
 	private void broadcastState() {
 		String m = "broadcastState";
+		sop(m,"Entry.");
 
 		// Get the string for the current state.
 		String state = getStateString();
 
 		// Prepare an intent to send to the MainActivity.
 		Intent intent = new Intent(MainActivity.ACTION_IMAGE);
+
+		// AD 2018-0914 Added package name.
 		intent.setPackage(this.getPackageName());
 		Bundle bundle = new Bundle();
 		bundle.putString(STATE_KEY, state);
@@ -461,13 +489,14 @@ AudioManager.OnAudioFocusChangeListener {
 
 		sop(m,"Broadcasting state=" + getStateString());
 		sendBroadcast(intent);
+		sop(m,"Exit. Called sendBroadcast(intent).");
 	}
 
 	/**
 	 * Returns a string to be used as the Notification Context Title.
 	 */
 	private String getNotificationContentTitle(Title title) {
-		String app_name = Constants.APP_NAME_MIXED + " ";
+		String app_name = Constants.APP_NAME_VERBOSE + " ";
 		if (Title.Stopped == title) {
 			return app_name + getResources().getString(R.string.STR_TITLE_STOPPED);
 		}
@@ -484,34 +513,65 @@ AudioManager.OnAudioFocusChangeListener {
 
 	/**
 	 * Generates a notifications to the user and sets 'foreground service' accordingly.
+	 * AD 2018-0915 Rewritten for compatibility with newer Android APIs.
 	 */
 	private void notifyUser(Title title, String text) {
 		String m = "notifyUser";
-		sop(m,"Entry. title=" + title + " text=" + text);
+		sop(m,"===1840> Entry. title=" + title + " text=" + text);
 
 		//-------------------------------
 		// Prepare the notification
 		//-------------------------------
 
-		CharSequence contentTitle = getNotificationContentTitle(title);
-		CharSequence contentText = text.subSequence(0, text.length());
+		CharSequence contentTitle = getNotificationContentTitle(title);  //ok
+		CharSequence contentText = text.subSequence(0, text.length());   //ok
 
-		Intent notificationIntent = new Intent(this, MainActivity.class);
-		PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+		Intent notificationIntent = new Intent(this, MainActivity.class);  //ok?
+		PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);  //ok?
 
 		// Initialization
-		if (null == _notification) {
+		/*if (null == _notification) {
 			int appicon = Constants.IMG_ICON;
 			long when = System.currentTimeMillis();
 			_notification = new Notification(appicon, contentTitle, when);
-		}
+		}*/
         if (null == _notificationManager) {
-            _notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+			_notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE); //ok
+
+			// For Android API 26 (Android 8 Oreo) and newer, create a NotificationChannel.
+			if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+				sop(m, "===> Handling Android 8, API 26, Oreo");
+				CharSequence name = Constants.APP_NAME_MIXED;
+				String description = Constants.APP_NAME_MIXED + " channel";
+				int importance = NotificationManagerCompat.IMPORTANCE_LOW;
+				NotificationChannel notChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance);
+				notChannel.setDescription(description);
+				notChannel.enableLights(true);
+				notChannel.enableVibration(true);
+				notChannel.setVibrationPattern(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
+				notChannel.setShowBadge(false);
+				_notificationManager.createNotificationChannel(notChannel);
+				sop(m,"Created Notification Channel!");
+			}
         }
 
+		if (null == _notificationBuilder) {
+			_notificationBuilder = new NotificationCompat.Builder(_applicationContext, NOTIFICATION_CHANNEL_ID);
+			sop(m,"Created Notification Compat Builder.");
+		}
 		// Set the title, message, and action.
 		// setLatestEventInfo is deprecated.  https://github.com/OneBusAway/onebusaway-android/issues/290
 		//_notification.setLatestEventInfo(_applicationContext, contentTitle, contentText, pendingIntent);
+		sop(m,"Setting title, message, etc in notification builder.");
+		_notificationBuilder.setSmallIcon(Constants.IMG_ICON);
+		_notificationBuilder.setContentTitle(contentTitle);
+		_notificationBuilder.setContentText(contentText);
+		_notificationBuilder.setContentIntent(pendingIntent);
+		_notificationBuilder.setWhen(System.currentTimeMillis());
+
+		sop(m,"Building notification...");
+		_notification = _notificationBuilder.build();
+		sop(m,"Built notification!");
 
 		//-------------------------------
 		// Dispatch the notification
@@ -519,20 +579,21 @@ AudioManager.OnAudioFocusChangeListener {
 
 		// No notification in tray.  Background service.
 		if (Title.Stopped == title) {
-
 			// Stop foreground service.
-			////stopForeground(true);
-			stopForeground(false);
+			sop(m,"Title is stopped. Stopping foreground.");
+			stopForeground(true);
 
 			// Cancel the notification.
-            ////_notificationManager.cancel(NOTIFICATION_ID);
+			sop(m,"Cancelling notification.");
+			_notificationManager.cancel(NOTIFICATION_ID); //ok
 		}
 		// Persistent, non-clearable notification in tray.  Foreground service.
 		else if (Title.Playing == title) {
 
 		    // Set this service to be a FOREground service, and post the notification.
-			////startForeground(NOTIFICATION_ID, _notification);
-			startForeground(0, null);
+			sop(m,"Title is playing. Calling startForeground().");
+			startForeground(NOTIFICATION_ID, _notification);
+			sop(m,"Called startForeground().");
 
 			// startForeground  apparently marks the notification as FLAG_NO_CLEAR.  This is unnecessary.
   			// _notification.flags |= Notification.FLAG_NO_CLEAR;
@@ -541,18 +602,20 @@ AudioManager.OnAudioFocusChangeListener {
 		else if (Title.Error == title) {
 
 			// Stop foreground service.
-			////stopForeground(true);
-			stopForeground(false);
+			sop(m,"Title is error. Stopping foreground.");
+			stopForeground(true);
 
 			// Enable the user to clear the notification.
-			_notification.flags &= (~Notification.FLAG_NO_CLEAR);
+			////TODO??? _notification.flags &= (~Notification.FLAG_NO_CLEAR);
 
             // Post or clear the notification.
-            ////_notificationManager.notify(NOTIFICATION_ID, _notification);
+			sop(m,"Clearing notification.");
+			_notificationManager.notify(NOTIFICATION_ID, _notification);
 		}
 		else {
 			throw new RuntimeException(appname + " Code bug.  Add new 'title' value to this method.");
 		}
+		sop(m,"Exit");
 	}
 
 	/**
@@ -652,3 +715,4 @@ AudioManager.OnAudioFocusChangeListener {
 	 */
 	public static String getMediaURLString() { return Constants.MEDIA_URL_STRING; }
 }
+
