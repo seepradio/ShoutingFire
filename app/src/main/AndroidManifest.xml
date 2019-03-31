@@ -2,14 +2,14 @@
 <!-- Copyright shoutingfire.com 2018,2019 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="com.shoutingfire.mobile.android.player"
-      android:versionCode="101"
-      android:versionName="1.0.1">
+      android:versionCode="102"
+      android:versionName="1.0.2">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    
-    <application android:icon="@drawable/icon" 
+
+    <application android:icon="@drawable/icon"
                  android:label="@string/app_name">
         <service android:name=".PlayerService"
                  android:enabled="true" >
@@ -19,7 +19,7 @@
                 <action android:name="com.shoutingfire.mobile.android.player.playerservice.action.STATUS" />
             </intent-filter>
         </service>
-        
+
         <activity android:name=".MainActivity"
                   android:launchMode="singleTask"
                   android:label="@string/app_name">
@@ -39,7 +39,7 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- One of the following is used to access the internet, but neither is required. -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
-    <uses-feature android:name="android.hardware.wifi" android:required="false" />    
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
     <!-- Permit the app to run on Google TV devices. -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
 </manifest>
